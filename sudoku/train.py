@@ -69,6 +69,7 @@ def main():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     t = '{}.{}'.format(args.boardSz, args.model)
+    # print(t)
     if args.model == 'optnetEq' or args.model == 'spOptnetEq':
         t += '.Qpenalty={}'.format(args.Qpenalty)
     elif args.model == 'optnetIneq':
@@ -176,6 +177,7 @@ def train(args, epoch, model, trainF, trainW, trainX, trainY, optimizer):
         batch_data_t = batch_data_t.cuda()
         batch_targets_t = batch_targets_t.cuda()
     batch_data = Variable(batch_data_t, requires_grad=False)
+
     batch_targets = Variable(batch_targets_t, requires_grad=False)
     for i in range(0, trainX.size(0), batchSz):
         batch_data.data[:] = trainX[i:i+batchSz]
@@ -189,14 +191,14 @@ def train(args, epoch, model, trainF, trainW, trainX, trainY, optimizer):
         loss = nn.MSELoss()(preds, batch_targets)
         loss.backward()
         optimizer.step()
-
+        #print(preds.data) ## self added
         err = computeErr(preds.data)/batchSz
         print('Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.4f} Err: {:.4f}'.format(
             epoch, i+batchSz, trainX.size(0),
             float(i+batchSz)/trainX.size(0)*100,
-            loss.data[0], err))
+            loss.data, err))
 
-        trainW.writerow((epoch-1+float(i+batchSz)/trainX.size(0), loss.data[0], err))
+        trainW.writerow((epoch-1+float(i+batchSz)/trainX.size(0), loss.data, err))
         trainF.flush()
 
 def test(args, epoch, model, testF, testW, testX, testY):
@@ -208,8 +210,9 @@ def test(args, epoch, model, testF, testW, testX, testY):
     if args.cuda:
         batch_data_t = batch_data_t.cuda()
         batch_targets_t = batch_targets_t.cuda()
-    batch_data = Variable(batch_data_t, volatile=True)
-    batch_targets = Variable(batch_targets_t, volatile=True)
+    with torch.no_grad():
+        batch_data = batch_data_t
+        batch_targets = batch_targets_t
 
     nErr = 0
     for i in range(0, testX.size(0), batchSz):
@@ -217,11 +220,13 @@ def test(args, epoch, model, testF, testW, testX, testY):
         batch_data.data[:] = testX[i:i+batchSz]
         batch_targets.data[:] = testY[i:i+batchSz]
         output = model(batch_data)
+
         test_loss += nn.MSELoss()(output, batch_targets)
         nErr += computeErr(output.data)
-
+        print(nErr)
     nBatches = testX.size(0)/batchSz
-    test_loss = test_loss.data[0]/nBatches
+    print(test_loss.data)
+    test_loss = test_loss.data/nBatches
     test_err = nErr/testX.size(0)
     print('TEST SET RESULTS:' + ' ' * 20)
     print('Average loss: {:.4f}'.format(test_loss))
@@ -236,6 +241,8 @@ def computeErr(pred):
     n = int(np.sqrt(nsq))
     s = (nsq-1)*nsq//2 # 0 + 1 + ... + n^2-1
     I = torch.max(pred, 3)[1].squeeze().view(batchSz, nsq, nsq)
+    #print("I is \n") ## self added
+    #print(I) ## self added
 
     def invalidGroups(x):
         valid = (x.min(1)[0] == 0)
