@@ -9,7 +9,7 @@ from tqdm import tqdm
 try: import setGPU
 except ImportError: pass
 
-import torch
+import torch    
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
@@ -162,6 +162,7 @@ def main():
         torch.save(model, os.path.join(args.save, 'latest.pth'))
         # writeParams(args, model, 'latest')
         os.system('./plot.py "{}" &'.format(args.save))
+    print(model.A)
 
 def writeParams(args, model, tag):
     if args.model == 'optnet':
